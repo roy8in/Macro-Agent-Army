@@ -100,7 +100,7 @@ class MacroScouter:
         return None
 
     def scout_boj_universal(self, year=None):
-        """[성공했던 로직] 링크 패턴을 분석하여 BOJ 자료를 낚아챕니다."""
+        """s링크 패턴을 분석하여 BOJ 자료를 낚아챕니다."""
         if year:
             url = f"https://www.boj.or.jp/about/press/koen_{year}/index.htm"
             source_name = f"BOJ_{year}"
@@ -113,7 +113,7 @@ class MacroScouter:
         if not soup:
             return results
 
-        # 아까 성공했던 '모든 링크 뒤지기' 전략
+        # '모든 링크 뒤지기' 전략
         links = soup.find_all('a', href=True)
         for a in links:
             href = a['href']
@@ -125,12 +125,13 @@ class MacroScouter:
                     href if href.startswith('/') else href
 
                 # 날짜 추출 시도
-                date = f"{year}-XX" if year else "Latest"
+                raw_date = f"{year}-XX" if year else "Latest"
                 try:
-                    # 표 구조인 경우 앞 칸의 날짜 텍스트를 가져옴
-                    date = a.find_parent('tr').find('td').get_text().strip()
+                    raw_date = a.find_parent('tr').find(
+                        'td').get_text().strip()
                 except:
                     pass
+                date = self._standardize_date(raw_date, year_hint=year)
 
                 results.append({
                     "source": source_name,
@@ -141,7 +142,7 @@ class MacroScouter:
         return results
 
     def scout_news_jp(self):
-        """지구통신 및 로이터 정찰"""
+        """시사통신 및 로이터 정찰"""
         sources = [
             {"name": "Jiji", "url": "https://www.jiji.com/jc/c?g=eco"},
             {"name": "Reuters", "url": "https://jp.reuters.com/markets/japan/"}
@@ -163,9 +164,44 @@ class MacroScouter:
                         href if src['name'] == "Jiji" else "https://jp.reuters.com" + href
                     )
                     results.append({
-                        "source": src['name'], "date": "Today", "title": title, "link": full_link
+                        "source": src['name'],
+                        # 오늘 날짜(YYYY-MM-DD)로 변환
+                        "date": self._standardize_date("Today"),
+                        "title": title,
+                        "link": full_link
                     })
         return results
+
+    def _standardize_date(self, date_str, year_hint=None):
+        """중구난방인 날짜 형식을 YYYY-MM-DD로 통일합니다."""
+        now = datetime.now()
+
+        # 1. 'Today', 'Recent' 처리 -> 오늘 날짜로
+        if any(word in date_str.lower() for word in ['today', 'recent', '最新']):
+            return now.strftime('%Y-%m-%d')
+
+        # 2. '2025年 7月 3日' 처리
+        if '年' in date_str:
+            date_str = date_str.replace(
+                '年', '-').replace('月', '-').replace('日', '').replace(' ', '')
+            # 2025-7-3 -> 2025-07-03 형태로 보정
+            try:
+                dt = datetime.strptime(date_str, '%Y-%m-%d')
+                return dt.strftime('%Y-%m-%d')
+            except:
+                pass
+
+        # 3. '2021-XX' 처리 (과거 데이터 백필용)
+        if '-XX' in date_str:
+            return f"{date_str.split('-')[0]}-01-01"  # 일단 그 해 1월 1일로 처리
+
+        # 4. 기타 '07/03' 등 연도가 없는 경우
+        # (BOJ 최신 리스트 등에서 연도 없이 월/일만 나올 때 사용)
+        if len(date_str) <= 6 and '/' in date_str:
+            year = year_hint if year_hint else now.year
+            return f"{year}-{date_str.replace('/', '-')}"
+
+        return date_str  # 변환 실패 시 원본 유지
 
     def run_all_jp(self):
         """일본 정찰 통합 실행"""
@@ -190,15 +226,15 @@ if __name__ == "__main__":
     scouter = MacroScouter()
 
     # [1] 과거 데이터 채우기 (2021~2025)
-    print("⏳ 과거 아카이브 채우는 중...")
-    for y in range(2021, 2026):
-        historical = scouter.scout_boj_universal(year=y)
-        count = 0
-        for item in historical:
-            if scouter._is_new(item['link']):
-                scouter._save_to_db(item, country="Japan")
-                count += 1
-        print(f"✅ {y}년도 완료: {count}건 저장")
+    # print("⏳ 과거 아카이브 채우는 중...")
+    # for y in range(2021, 2026):
+    #     historical = scouter.scout_boj_universal(year=y)
+    #     count = 0
+    #     for item in historical:
+    #         if scouter._is_new(item['link']):
+    #             scouter._save_to_db(item, country="Japan")
+    #             count += 1
+    #     print(f"✅ {y}년도 완료: {count}건 저장")
 
     # [2] 오늘자 최신 정찰
     new_data = scouter.run_all_jp()
