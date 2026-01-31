@@ -17,7 +17,7 @@ class MacroAnalyst:
     def _analyze_local(self, prompt):
         """로컬 Ollama(qwen2.5:14b)를 통해 분석 수행"""
         payload = {
-            "model": "qwen2.5:14b",  # 사령관님의 강력한 로컬 모델
+            "model": "qwen2.5:14b",
             "prompt": prompt,
             "stream": False
         }
@@ -53,42 +53,44 @@ class MacroAnalyst:
 
             요구사항 (한국어로 답변):
             1. [제목 번역]: 한국어로 매끄럽게 번역.
-            2. [핵심 요약]: 뉴스의 배경과 의미를 전문가적 시각에서 요약.
-            3. [정책 톤]: '매파(인상 지지)', '비둘기파(완화 유지)', '중립' 중 선택하고 이유 기술.
-            4. [전략적 시사점]: 금융시장에 미칠 실질적인 영향 1가지.
-            5. [추가 리서치]: 추가로 확인해야 할 사항.
-
-            * 주의: '중립'은 지양하고 최대한 시장의 방향성을 해석할 것.
+            2. [심층 분석 요약]: 해당 뉴스의 배경, 현재 시장 상황과의 연계성, 그리고 숨겨진 의미를 포함하여 '최소 3문장 이상'의 상세한 분석을 작성하십시오. 
+            3. [전략적 시사점]: 금융시장에 미칠 실질적인 영향.
+            4. [추가 리서치]: 이 이슈와 관련하여 다음으로 확인해야 할 경제 지표나 이벤트를 제시하십시오.
             """
 
             analysis_result = ""
+            provider = ""  # 어떤 모델이 분석했는지 기록용
+
             try:
-                # 1. Groq(클라우드) 시도
+                # 1. 먼저 Groq(클라우드) 시도
                 completion = client.chat.completions.create(
                     model="groq/compound",
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1
+                    temperature=0.0
                 )
                 analysis_result = completion.choices[0].message.content
-                print(f"[{i}/{total}] ☁️ Groq 분석 완료")
+                provider = "☁️ Groq"
 
             except Exception as e:
-                # 2. 리밋 도달 시 로컬 스위칭
-                if "429" in str(e) or "limit" in str(e).lower():
-                    print(f"[{i}/{total}] ⚠️ Groq 리밋! 로컬 M4(Qwen 14B) 정찰병 투입...")
-                    analysis_result = self._analyze_local(prompt)
-                    print(f"[{i}/{total}] 💻 로컬 분석 완료")
-                else:
-                    print(f"❌ 에러 발생: {e}")
-                    continue
+                # 2. 에러 발생 시 즉시 로컬로 전환
+                print(f"[{i}/{total}] ⚠️ Groq 에러({e})... 로컬 투입!")
 
-            # DB 업데이트
+                try:
+                    analysis_result = self._analyze_local(
+                        prompt)  # 👈 이미 만든 함수 재활용
+                    provider = "💻 Local(Qwen)"
+                except Exception as local_e:
+                    print(f"❌ [{i}] 모든 분석 실패: {local_e}")
+                    continue  # 실패하면 다음 기사로 스킵
+
+            # 3. DB 업데이트 (여기서 저장해야 루프가 돌아가도 데이터가 남습니다)
             cur.execute(
                 "UPDATE news SET analysis_text = ? WHERE link = ?", (analysis_result, link))
             conn.commit()
+            print(f"[{i}/{total}] 분석 완료 ({provider})")
 
-            # Groq를 쓸 때는 1.5초 휴식, 로컬은 바로 진행
-            if "☁️" in locals().get('analysis_result', ''):
+            # 4. Groq를 쓸 때는 1.5초 휴식 (Rate Limit 방지)
+            if provider == "☁️ Groq":
                 time.sleep(1.5)
 
         conn.close()

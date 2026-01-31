@@ -119,19 +119,27 @@ class MacroScouter:
             href = a['href']
             title = a.get_text().strip()
 
-            # BOJ 강연문/보도자료 특유의 링크 패턴 (/ko 또는 koen)
             if ('/ko' in href or 'koen' in href) and len(title) > 10:
                 full_link = "https://www.boj.or.jp" + \
                     href if href.startswith('/') else href
 
-                # 날짜 추출 시도
-                raw_date = f"{year}-XX" if year else "Latest"
+                # 1. 날짜 추출 시도
+                found_date = None
                 try:
-                    raw_date = a.find_parent('tr').find(
+                    # 실제 표(tr) 안에 날짜(td)가 있는지 확인
+                    found_date = a.find_parent('tr').find(
                         'td').get_text().strip()
                 except:
+                    # 날짜가 없으면 기사가 아닐 확률이 높으므로 'found_date'는 None
                     pass
-                date = self._standardize_date(raw_date, year_hint=year)
+
+                # 🚨 [핵심 수정]
+                # 날짜를 못 찾았거나, 찾았는데 'latest' 같은 안내 문구라면 저장하지 않고 건너뜀
+                if not found_date or "latest" in found_date.lower():
+                    continue
+
+                # 정상적인 날짜가 있을 때만 진행
+                date = self._standardize_date(found_date, year_hint=year)
 
                 results.append({
                     "source": source_name,
