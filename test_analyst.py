@@ -22,7 +22,7 @@ class MacroAnalyst:
             "stream": False
         }
         try:
-            response = requests.post(self.local_url, json=payload, timeout=60)
+            response = requests.post(self.local_url, json=payload)
             return response.json()['response']
         except Exception as e:
             return f"❌ 로컬 분석 실패: {e}"
