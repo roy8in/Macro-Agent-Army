@@ -1,0 +1,36 @@
+name: Global Macro Scouting
+
+on:
+  schedule:
+    # 1시간마다 한 번씩 자동으로 실행 (UTC 기준)
+    - cron: '0 */1 * * *'
+  workflow_dispatch: # 필요할 때 수동으로도 버튼 눌러 실행 가능
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests beautifulsoup4 pandas
+
+    - name: Run Japan Scouter
+      run: python scout_jp.py
+
+    - name: Commit and Push DB
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add macro_intelligence.db
+        git commit -m "🚀 자동 정찰 데이터 업데이트 ($(date +'%Y-%m-%d %H:%M'))" || echo "변경 사항 없음"
+        git push
