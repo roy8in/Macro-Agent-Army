@@ -1,5 +1,6 @@
 .env
 *.db
+!macro_intelligence.db
 .venv/
 __pycache__/
 .DS_Store
