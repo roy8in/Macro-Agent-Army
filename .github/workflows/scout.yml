@@ -1,0 +1,35 @@
+name: Global-Macro-Scout
+
+on:
+  schedule:
+    - cron: '0 */1 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-scout:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install
+        run: pip install requests beautifulsoup4 pandas
+
+      - name: Run
+        run: python scout_jp.py
+
+      - name: Push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add macro_intelligence.db
+          git commit -m "update db" || echo "no changes"
+          git push
