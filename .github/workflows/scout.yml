@@ -28,7 +28,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install
-        run: pip install requests beautifulsoup4 pandas python-dateutil
+        run: pip install requests beautifulsoup4 pandas python-dateutil lxml
 
       - name: Run
         run: python scout_jp.py
