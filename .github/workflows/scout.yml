@@ -34,10 +34,14 @@ jobs:
         run: python scout_jp.py
 
       # 🚨 [무적의 단계] 직접 git 명령어를 쓰는 대신 전용 도구를 사용합니다.
-      - name: Auto Commit and Push
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: "📡 정찰 보고: DB 업데이트 (${{ github.event.schedule }})"
-          file_pattern: 'macro_intelligence.db' # DB 파일만 타겟팅
-          # 🚨 충돌 발생 시 원격의 내용을 먼저 가져와 합칩니다.
-          push_options: '--force' # 혼자 쓰는 DB라면 force가 가장 깔끔합니다.
+      - name: Push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add macro_intelligence.db
+          # 변경사항이 있을 때만 커밋
+          git diff --quiet && git diff --staged --quiet || git commit -m "update db"
+          
+          # 🚨 [핵심] 그냥 push가 아니라 --force를 사용합니다.
+          # 서버의 데이터와 충돌나면 서버걸 무시하고 내걸로 덮어버립니다.
+          git push origin main --force
