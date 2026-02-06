@@ -2,11 +2,11 @@ name: Global-Macro-Scout
 
 on:
   schedule:
-    # 사령관님, 20분 간격 유실 방지를 위해 제안드린 크론식입니다. (필요시 '0 */1 * * *'로 복구 가능)
+    # 5분 간격 (유실 방지를 위해 권장)
     - cron: '*/5 * * * *'
   workflow_dispatch:
 
-# 🚨 [신규] 같은 정찰 작전이 겹치지 않게 방어막을 칩니다.
+# 🚨 [중요] 정찰기끼리 엉키지 않게 차례를 세웁니다.
 concurrency:
   group: macro-scouting
   cancel-in-progress: true
@@ -21,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          # 🚨 [중요] 모든 히스토리를 가져와야 안전하게 합칠(Rebase) 수 있습니다.
+          # 🚨 [필수] 전체 히스토리를 가져와야 리베이스(Rebase)가 가능합니다.
           fetch-depth: 0
 
       - name: Set up Python
@@ -30,11 +30,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install
-        # 🚨 [중요] 날짜 세탁을 위해 python-dateutil을 추가했습니다.
+        # 날짜 세탁용 python-dateutil을 꼭 포함해야 합니다.
         run: pip install requests beautifulsoup4 pandas python-dateutil
 
       - name: Run
-        # 실행할 파일명이 'scout_jp.py'가 맞는지 한 번 더 확인하십시오!
+        # 실행할 파일명이 'scout_jp.py'인지 다시 확인해 주세요.
         run: python scout_jp.py
 
       - name: Push
@@ -42,14 +42,14 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # 1. 변경사항 스테이징
+          # 1. DB 파일 추가
           git add macro_intelligence.db
           
-          # 2. 커밋 (변경사항 없으면 통과)
+          # 2. 변경사항 확인 후 커밋 (없으면 스킵)
           git diff --quiet && git diff --staged --quiet || git commit -m "📡 정찰 보고: DB 업데이트 ($(date +'%Y-%m-%d %H:%M'))"
           
-          # 3. 🚨 [핵심] 원격 기지의 최신 상태를 가져와서 내 작업물을 그 위에 얹습니다.
+          # 3. 🚨 [핵심] 리모트의 최신 데이터를 가져와서 내 작업물을 그 위로 얹습니다.
           git pull --rebase origin main
           
-          # 4. 이제 안전하게 밀어넣기
+          # 4. 이제 안전하게 푸시
           git push origin main
